@@ -1,5 +1,10 @@
 Trabalho prático 1 - SAVI
 ==============
+# GRUPO 6
+
+Eduardo Pereira 108009
+Goncalo Almeida ??????
+==============
 Miguel Riem Oliveira <mriem@ua.pt>
 2025-2026
 
