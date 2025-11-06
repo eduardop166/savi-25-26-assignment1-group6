@@ -5,8 +5,11 @@ import os
 
 # Caminhos para as pastas 
 base_path = "tum_dataset"
-rgb_path = r"C:\Users\Eduardo Pereira\Documents\UNI\A2-S1\SAVI\TRABALHO1\tum_dataset\rgb"
-depth_path = r"C:\Users\Eduardo Pereira\Documents\UNI\A2-S1\SAVI\TRABALHO1\tum_dataset\depth"
+#rgb_path = r"C:\Users\Eduardo Pereira\Documents\UNI\A2-S1\SAVI\TRABALHO1\tum_dataset\rgb"
+#depth_path = r"C:\Users\Eduardo Pereira\Documents\UNI\A2-S1\SAVI\TRABALHO1\tum_dataset\depth"
+
+rgb_path = r"C:\Universidade\Mestrado\2o Ano\SAVI\savi-25-26-assignment1-group6\tum_dataset\rgb"
+depth_path = r"C:\Universidade\Mestrado\2o Ano\SAVI\savi-25-26-assignment1-group6\tum_dataset\depth"
 
 # Parâmetros intrínsecos da camera
 fx, fy = 525.0, 525.0
@@ -19,7 +22,7 @@ def process_rgbd_pair(rgb_file, depth_file):
     color_cv = cv2.cvtColor(cv2.imread(rgb_file), cv2.COLOR_BGR2RGB)
     depth_cv = cv2.imread(depth_file, cv2.IMREAD_UNCHANGED)
 
-    if depth_cv is None or color_cv is None:
+    if depth_cv is None or color_cv is None:  
         raise FileNotFoundError(f"Erro a ler {rgb_file} ou {depth_file}")
 
     # Garantir que esta em uint16
@@ -40,7 +43,7 @@ def process_rgbd_pair(rgb_file, depth_file):
     rgbd_image = o3d.geometry.RGBDImage.create_from_color_and_depth(
         color=color_raw,
         depth=depth_raw,
-        depth_scale=5000.0,   # padrão TUM
+        depth_scale=5000.0,   # padrão TUM, valores do depth vêm em milimetros 
         depth_trunc=4.0,      # corta profundidades > 4 m
         convert_rgb_to_intensity=False  # mantém cores reais
     )
