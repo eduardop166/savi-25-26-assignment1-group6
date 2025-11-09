@@ -8,6 +8,9 @@ base_path = "tum_dataset"
 rgb_path = r"C:\Users\Eduardo Pereira\Documents\UNI\A2-S1\SAVI\TRABALHO1\tum_dataset\rgb"
 depth_path = r"C:\Users\Eduardo Pereira\Documents\UNI\A2-S1\SAVI\TRABALHO1\tum_dataset\depth"
 
+#rgb_path = r"C:\Universidade\Mestrado\2o Ano\SAVI\savi-25-26-assignment1-group6\tum_dataset\rgb"
+#depth_path = r"C:\Universidade\Mestrado\2o Ano\SAVI\savi-25-26-assignment1-group6\tum_dataset\depth"
+
 # Parâmetros intrínsecos da camera
 fx, fy = 525.0, 525.0
 cx, cy = 319.5, 239.5
@@ -68,14 +71,14 @@ def process_rgbd_pair(rgb_file, depth_file):
     return pcd_down
 
 # Exemplo: processar imagens 1 e 2
-pcd1 = process_rgbd_pair(os.path.join(rgb_path, "1.png"),
+pointcloud1 = process_rgbd_pair(os.path.join(rgb_path, "1.png"),
                          os.path.join(depth_path, "1.png"))
-pcd2 = process_rgbd_pair(os.path.join(rgb_path, "2.png"),
+pointcloud2 = process_rgbd_pair(os.path.join(rgb_path, "2.png"),
                          os.path.join(depth_path, "2.png"))
 
 
 # Visualização
-#o3d.visualization.draw_geometries([pcd2])
+#o3d.visualization.draw_geometries([pointcloud2])
 
 ############################################################
 #                TAREFA 1 — ICP com Open3D
@@ -95,27 +98,27 @@ initial_transform = np.eye(4)  # transformação inicial identidade
 
 # POINT TO PLANE
 icp_result = o3d.pipelines.registration.registration_icp(
-    source=pcd1,
-    target=pcd2,
+    source=pointcloud1,
+    target=pointcloud2,
     max_correspondence_distance=threshold,
     init=initial_transform,
     estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPlane())
 
 # POINT TO POINT
 #icp_result = o3d.pipelines.registration.registration_icp(
-#    source=pcd1,
-#    target=pcd2,
+#    source=pointcloud1,
+#    target=pointcloud2,
 #    max_correspondence_distance=threshold
 #    init=initial_transform,
 #    estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint())
 
 # Aplica a transformacao e alinha
 
-pcd1_aligned = pcd1.transform(icp_result.transformation)
+prointclouds_aligned = pointcloud1.transform(icp_result.transformation)
 
-# visuzlizar
+# visuazlizar
 
-pcd1.paint_uniform_color([1, 0, 0])  # vermelho = fonte transformada
-pcd2.paint_uniform_color([0, 0, 1])  # azul = alvo
+pointcloud1.paint_uniform_color([1, 0, 0])  # vermelho = fonte transformada
+pointcloud2.paint_uniform_color([0, 0, 1])  # azul = alvo
 
-o3d.visualization.draw_geometries([pcd1, pcd2])
+o3d.visualization.draw_geometries([pointcloud1, pointcloud2])
