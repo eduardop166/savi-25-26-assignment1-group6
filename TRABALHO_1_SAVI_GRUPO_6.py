@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import open3d as o3d
 import os
+import copy
 
 # Caminhos para as pastas 
 base_path = "tum_dataset"
@@ -76,6 +77,9 @@ pointcloud1 = process_rgbd_pair(os.path.join(rgb_path, "1.png"),
 pointcloud2 = process_rgbd_pair(os.path.join(rgb_path, "2.png"),
                          os.path.join(depth_path, "2.png"))
 
+pc1original = copy.deepcopy(pointcloud1)
+pc2original = copy.deepcopy(pointcloud2)
+
 
 # Guarda point clouds em .ply
 o3d.io.write_point_cloud("pcd1.ply", pointcloud1)
@@ -119,11 +123,15 @@ icp_result = o3d.pipelines.registration.registration_icp(
 
 # Aplica a transformacao e alinha
 
-prointclouds_aligned = pointcloud1.transform(icp_result.transformation)
+pointcloud1.transform(icp_result.transformation)
 
 # visuazlizar
 
-pointcloud1.paint_uniform_color([1, 0, 0])  # vermelho = fonte transformada
-pointcloud2.paint_uniform_color([0, 0, 1])  # azul = alvo
+#pointcloud1.paint_uniform_color([1, 0, 0])  # vermelho = fonte transformada
+#pointcloud2.paint_uniform_color([0, 0, 1])  # azul = alvo
+#pc1original.paint_uniform_color([1, 0, 0])  # vermelho = deepcopy da fonte original
 
-o3d.visualization.draw_geometries([pointcloud1, pointcloud2])
+
+
+o3d.visualization.draw_geometries([pc1original, pointcloud2],window_name="ANTES DO ICP")
+o3d.visualization.draw_geometries([pointcloud1, pointcloud2],window_name="DEPOIS DO ICP")
