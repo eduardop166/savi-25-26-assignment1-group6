@@ -77,6 +77,11 @@ pointcloud2 = process_rgbd_pair(os.path.join(rgb_path, "2.png"),
                          os.path.join(depth_path, "2.png"))
 
 
+# Guarda point clouds em .ply
+o3d.io.write_point_cloud("pcd1.ply", pointcloud1)
+o3d.io.write_point_cloud("pcd2.ply", pointcloud2)
+
+
 # Visualização
 #o3d.visualization.draw_geometries([pointcloud2])
 
