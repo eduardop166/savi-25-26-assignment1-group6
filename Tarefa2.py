@@ -99,20 +99,38 @@ o3d.io.write_point_cloud("pcd2.ply", pointcloud_alvo)
 # Cria o KDTree da nuvem alvo
 alvo_tree = o3d.geometry.KDTreeFlann(pointcloud_alvo)
 
-# Guarda as coordenadas dos pontos em array
-fonte_points = np.asarray(pointcloud_fonte.points)
-alvo_points = np.asarray(pointcloud_alvo.points)
+
 
 # Lista para guardar as correspondências
 correspondencias = []
+distanciatotal = 0
 
-# Para cada ponto da fonte (pc1), encontra o vizinho mais próximo na alvo (pc2)
-for i, p in enumerate(fonte_points):  #p - coordenadas do ponto atual    i - index
-    [k, idx, dist] = alvo_tree.search_knn_vector_3d(p, 1)  # procura 1 vizinho mais próximo (k=1)
-    #k - numero de vizinhos encontrados 
-    #dist - distancia 
-    if k > 0:
-        correspondencias.append((i, idx[0]))
+def transforma_te(pcl_fonte, pcl_alvo, trans):
+
+    # Aplica a transformacao e alinha
+    pcl_alvo.transform(trans.transformation)
+
+    # Guarda as coordenadas dos pontos em array
+    fonte_points = np.asarray(pcl_fonte.points)
+    alvo_points = np.asarray(pcl_alvo.points)
+
+
+
+    #precisamos de ver como fazer a transformação atraves do vetor de 6 elementos (talvez atraves da matriz de rotacao normal)
+    #depois da transformacao feita, fazemos a soma das distancias dos pontos, e o erro
+
+
+    # Para cada ponto da fonte (pc1), encontra o vizinho mais próximo na alvo (pc2)
+    for i, p in enumerate(fonte_p):  #p - coordenadas do ponto atual    i - index
+        k, idx, dist = alvo.search_knn_vector_3d(p, 1)  # procura 1 vizinho mais próximo (k=1)
+        #k - numero de vizinhos encontrados 
+        #dist - lista com 1 elemento da distancia ao quadrado 
+        if k > 0:
+            correspondencias.append((i, idx[0]))
+            distanciatotal += dist[0]
+
+
+
 
 
 
