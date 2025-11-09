@@ -2,7 +2,6 @@ import cv2
 import numpy as np
 import open3d as o3d
 import os
-import copy
 
 # Caminhos para as pastas 
 base_path = "tum_dataset"
@@ -60,8 +59,6 @@ def process_rgbd_pair(rgb_file, depth_file):
                    [0, -1, 0, 0],
                    [0, 0, -1, 0],
                    [0, 0, 0, 1]])
-    
-    
 
     # Diminui a intensidade 
     pcd_down = pcd.voxel_down_sample(voxel_size=0.02)
@@ -78,9 +75,6 @@ pointcloud1 = process_rgbd_pair(os.path.join(rgb_path, "1.png"),
                          os.path.join(depth_path, "1.png"))
 pointcloud2 = process_rgbd_pair(os.path.join(rgb_path, "2.png"),
                          os.path.join(depth_path, "2.png"))
-
-pc1original = copy.deepcopy(pointcloud1)
-pc2original = copy.deepcopy(pointcloud2)
 
 
 # Guarda point clouds em .ply
@@ -100,9 +94,9 @@ o3d.io.write_point_cloud("pcd2.ply", pointcloud2)
 
 threshold = 0.15  # distância máxima entre correspondências
 initial_transform = np.eye(4)  # transformação inicial identidade
-#initial_transform = np.asarray([[0.993, 0.038, -0.10, -0.7],  # Transformacao Meshlab
-#                         [-0.038, 0.99, 0.003, -0.05],
-#                         [0.10, 0.0003, 0.9946, -0.090],
+#initial_transform = np.asarray([[0.862, 0.011, -0.507, 0.5],
+#                         [-0.139, 0.967, -0.215, 0.7],
+#                         [0.487, 0.255, 0.835, -1.4],
 #                         [0.0, 0.0, 0.0, 1.0]])
 
 # Executar ICP
@@ -125,15 +119,11 @@ icp_result = o3d.pipelines.registration.registration_icp(
 
 # Aplica a transformacao e alinha
 
-pointcloud1.transform(icp_result.transformation)
+prointclouds_aligned = pointcloud1.transform(icp_result.transformation)
 
 # visuazlizar
 
-#pointcloud1.paint_uniform_color([1, 0, 0])  # vermelho = fonte transformada
-#pointcloud2.paint_uniform_color([0, 0, 1])  # azul = alvo
-#pc1original.paint_uniform_color([1, 0, 0])  # vermelho = deepcopy da fonte original
+pointcloud1.paint_uniform_color([1, 0, 0])  # vermelho = fonte transformada
+pointcloud2.paint_uniform_color([0, 0, 1])  # azul = alvo
 
-
-
-o3d.visualization.draw_geometries([pc1original, pointcloud2],window_name="ANTES DO ICP")
-o3d.visualization.draw_geometries([pointcloud1, pointcloud2],window_name="DEPOIS DO ICP")
+o3d.visualization.draw_geometries([pointcloud1, pointcloud2])
