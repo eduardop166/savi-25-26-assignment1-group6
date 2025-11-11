@@ -3,6 +3,7 @@ import numpy as np
 import open3d as o3d
 import os
 from scipy.spatial.transform import Rotation as R
+from scipy.optimize import least_squares
 import copy
 
 ############################################################
@@ -12,11 +13,11 @@ import copy
 
 # Caminhos para as pastas 
 base_path = "tum_dataset"
-rgb_path = r"C:\Users\Eduardo Pereira\Documents\UNI\A2-S1\SAVI\TRABALHO1\tum_dataset\rgb"
-depth_path = r"C:\Users\Eduardo Pereira\Documents\UNI\A2-S1\SAVI\TRABALHO1\tum_dataset\depth"
+#rgb_path = r"C:\Users\Eduardo Pereira\Documents\UNI\A2-S1\SAVI\TRABALHO1\tum_dataset\rgb"
+#depth_path = r"C:\Users\Eduardo Pereira\Documents\UNI\A2-S1\SAVI\TRABALHO1\tum_dataset\depth"
 
-#rgb_path = r"C:\Universidade\Mestrado\2o Ano\SAVI\savi-25-26-assignment1-group6\tum_dataset\rgb"
-#depth_path = r"C:\Universidade\Mestrado\2o Ano\SAVI\savi-25-26-assignment1-group6\tum_dataset\depth"
+rgb_path = r"C:\Universidade\Mestrado\2o Ano\SAVI\savi-25-26-assignment1-group6\tum_dataset\rgb"
+depth_path = r"C:\Universidade\Mestrado\2o Ano\SAVI\savi-25-26-assignment1-group6\tum_dataset\depth"
 
 # Parâmetros intrínsecos da camera
 fx, fy = 525.0, 525.0
@@ -102,7 +103,7 @@ o3d.io.write_point_cloud("pcd2.ply", pointcloud_alvo)
 
 #As point clouds têm números de pontos diferentes 
 #FUNCAO QUE RECEBE POINT CLOUD FONTE E ALVO E UMA TRANSFORMACAO, APLICA A TRANS AO TARGET E CALCULA DISTANCIAS INDIVIDUAIS E TOTAL 
-def transforma_te(pcl_fonte, pcl_alvo, trans):
+def transforma_te(pcl_fonte, trans):
     # TRANSFORMA trans (tx, ty, tz, rx, ry, rz) em matriz 4x4
     tx, ty, tz, rx, ry, rz = trans
     # rotação a partir dos ângulos de Euler (XYZ)
@@ -114,12 +115,16 @@ def transforma_te(pcl_fonte, pcl_alvo, trans):
     # copiar target para não alterar o original
     pcl_fonte_trans = copy.deepcopy(pcl_fonte)
     pcl_fonte_trans.transform(T.copy())
+    
+    return pcl_fonte_trans
 
+def Erro(trans ,pcl_fonte, pcl_alvo):
 
+    pcl_fonte_atual = transforma_te(pcl_fonte,trans)
     # Preparar KD-tree
-    source_tree = o3d.geometry.KDTreeFlann(pcl_fonte_trans)
+    source_tree = o3d.geometry.KDTreeFlann(pcl_fonte_atual)
 
-    source_points = np.asarray(pcl_fonte_trans.points) # não usado direto, mas útil
+    source_points = np.asarray(pcl_fonte_atual.points) # não usado direto, mas útil
     target_points = np.asarray(pcl_alvo.points) 
 
     correspondencias = [] # LISTA DE CORRESPONDENCIAS (indice da fonte, indice do alvo)
@@ -133,7 +138,7 @@ def transforma_te(pcl_fonte, pcl_alvo, trans):
             correspondencias.append((i, idx[0]))
             dist_total += dist[0]  # dist[0] já é distância ao quadrado
             distancias_ind.append(dist[0])
-    return dist_total, correspondencias, distancias_ind, pcl_fonte_trans
+    return distancias_ind
 
 ### FALTA OTIMIZACAO, VALID DIST( QUANDO DISTANCIA E MENOR QUE THRESHOLD É VALIDO (1) E INVALIDO QUANDO MAIOR (0) )
 
@@ -151,8 +156,9 @@ def transforma_te(pcl_fonte, pcl_alvo, trans):
 #o3d.visualization.draw_geometries([pointcloud_alvo, pointcloud_fonte],window_name="ANTES DO ICP")
 #o3d.visualization.draw_geometries([pointcloud_alvo, pcl_transformada],window_name="DEPOIS DO ICP")
 
-
-
+transini = [0,0,0,0,0,0]
+res = least_squares(Erro, transini, args=(pointcloud_fonte, pointcloud_alvo), method='lm')
+print(res.x)
 
 
 
