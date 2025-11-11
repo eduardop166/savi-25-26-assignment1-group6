@@ -3,6 +3,7 @@ import numpy as np
 import open3d as o3d
 import os
 from scipy.spatial.transform import Rotation as R
+import copy
 
 ############################################################
 #                Pré Processamento
@@ -111,28 +112,45 @@ def transforma_te(pcl_fonte, pcl_alvo, trans):
     T[:3, 3] = [tx, ty, tz]
 
     # copiar target para não alterar o original
-    pcl_target_trans = pcl_alvo.transform(T.copy())
+    pcl_fonte_trans = copy.deepcopy(pcl_fonte)
+    pcl_fonte_trans.transform(T.copy())
+
 
     # Preparar KD-tree
-    target_tree = o3d.geometry.KDTreeFlann(pcl_target_trans)
+    source_tree = o3d.geometry.KDTreeFlann(pcl_fonte_trans)
 
-    source_points = np.asarray(pcl_fonte.points)
-    target_points = np.asarray(pcl_target_trans.points)  # não usado direto, mas útil
+    source_points = np.asarray(pcl_fonte_trans.points) # não usado direto, mas útil
+    target_points = np.asarray(pcl_alvo.points) 
 
     correspondencias = [] # LISTA DE CORRESPONDENCIAS (indice da fonte, indice do alvo)
     distancias_ind = [] # LISTA DE DISTANCIAS PARA CADA CORRESPONDENCIA
     dist_total = 0.0 # DISTANCIA TOTAL
 
     # Para cada ponto da fonte (pc1), encontra o vizinho mais próximo na alvo (pc2)
-    for i, p in enumerate(source_points):
-        k, idx, dist = target_tree.search_knn_vector_3d(p, 1)
+    for i, p in enumerate(target_points):
+        k, idx, dist = source_tree.search_knn_vector_3d(p, 1)
         if k > 0:
             correspondencias.append((i, idx[0]))
             dist_total += dist[0]  # dist[0] já é distância ao quadrado
             distancias_ind.append(dist[0])
-    return dist_total, correspondencias, distancias_ind
+    return dist_total, correspondencias, distancias_ind, pcl_fonte_trans
 
 ### FALTA OTIMIZACAO, VALID DIST( QUANDO DISTANCIA E MENOR QUE THRESHOLD É VALIDO (1) E INVALIDO QUANDO MAIOR (0) )
+
+
+# CODIGO PARA TESTAR A FUNCAO TRANSFORMA_TE
+
+#[ tx=0.912772, ty=0.071510, tz=-0.009936,  rx=0.017766, ry=0.171394, rz=0.081535 ] dado pelo ICP - Tarefa 1
+#trans = [0.912,0.071510,-0.00993,0.0177,0.1713,0.0815]
+#a,b,c,pcl_transformada= transforma_te(pointcloud_fonte, pointcloud_alvo, trans)
+#print("DISTANCIA TOTAL", a)
+#print("CORRESPONDENCIAS",b)
+#print("DISTANCIAS INDIVIDUAIS",c)
+### FALTA OTIMIZACAO, VALID DIST( QUANDO DISTANCIA E MENOR QUE THRESHOLD É VALIDO (1) E INVALIDO QUANDO MAIOR (0),
+# DEPOIS NO CALCULO DO ERRO APENAS SOMAR OS VALIDOS )
+#o3d.visualization.draw_geometries([pointcloud_alvo, pointcloud_fonte],window_name="ANTES DO ICP")
+#o3d.visualization.draw_geometries([pointcloud_alvo, pcl_transformada],window_name="DEPOIS DO ICP")
+
 
 
 
