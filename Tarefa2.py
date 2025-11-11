@@ -96,33 +96,48 @@ o3d.io.write_point_cloud("pcd2.ply", pointcloud_alvo)
 #                TAREFA 2 — ICP com Open3D
 ############################################################
 
-# Cria o KDTree da nuvem alvo
-alvo_tree = o3d.geometry.KDTreeFlann(pointcloud_alvo)
 
 
+#As point clouds têm números de pontos diferentes 
 
-# Lista para guardar as correspondências
-correspondencias = []
-distanciatotal = 0
+def transforma_te(pcl_fonte, pcl_alvo, trans, alvo_tree):
 
-def transforma_te(pcl_fonte, pcl_alvo, trans):
+    
+    #precisamos de ver como fazer a transformação atraves do vetor de 6 elementos 
+    #(talvez atraves da matriz de rotacao normal)
+    initial_transform = np.asarray([[0.862 , 0.011, -0.507,  0.5],
+                                    [-0.139, 0.967, -0.215,  0.7],
+                                    [0.487 , 0.255,  0.835, -1.4],
+                                    [   0.0,   0.0,    0.0,  1.0]])
+    
+    #Templates
+    #params = [rx, ry, rz, tx, ty, tz]
 
+    #[ROT, ROT, ROT,  TRA],
+    #[ROT, ROT, ROT,  TRA],
+    #[ROT, ROT, ROT,  TRA],
+    #[0.0, 0.0, 0.0,  1.0]
+    
     # Aplica a transformacao e alinha
     pcl_alvo.transform(trans.transformation)
 
-    # Guarda as coordenadas dos pontos em array
+    # Cria o KDTree da nuvem alvo
+    alvo_tree = o3d.geometry.KDTreeFlann(pointcloud_alvo)
+    
+    # Guarda as coordenadas dos pontos em array (depois da transformação)
     fonte_points = np.asarray(pcl_fonte.points)
     alvo_points = np.asarray(pcl_alvo.points)
 
 
-
-    #precisamos de ver como fazer a transformação atraves do vetor de 6 elementos (talvez atraves da matriz de rotacao normal)
     #depois da transformacao feita, fazemos a soma das distancias dos pontos, e o erro
 
+    # Lista para guardar as correspondências
+    correspondencias = []
+    distanciatotal = 0
 
     # Para cada ponto da fonte (pc1), encontra o vizinho mais próximo na alvo (pc2)
-    for i, p in enumerate(fonte_p):  #p - coordenadas do ponto atual    i - index
-        k, idx, dist = alvo.search_knn_vector_3d(p, 1)  # procura 1 vizinho mais próximo (k=1)
+    for i, p in enumerate(fonte_points):  #p - coordenadas do ponto atual    i - index
+        k, idx, dist = alvo_tree.search_knn_vector_3d(p, 1)  # procura 1 vizinho mais próximo (k=1)
         #k - numero de vizinhos encontrados 
         #dist - lista com 1 elemento da distancia ao quadrado 
         if k > 0:
