@@ -13,11 +13,11 @@ import copy
 
 # Caminhos para as pastas 
 base_path = "tum_dataset"
-#rgb_path = r"C:\Users\Eduardo Pereira\Documents\UNI\A2-S1\SAVI\TRABALHO1\tum_dataset\rgb"
-#depth_path = r"C:\Users\Eduardo Pereira\Documents\UNI\A2-S1\SAVI\TRABALHO1\tum_dataset\depth"
+rgb_path = r"C:\Users\Eduardo Pereira\Documents\UNI\A2-S1\SAVI\TRABALHO1\tum_dataset\rgb"
+depth_path = r"C:\Users\Eduardo Pereira\Documents\UNI\A2-S1\SAVI\TRABALHO1\tum_dataset\depth"
 
-rgb_path = r"C:\Universidade\Mestrado\2o Ano\SAVI\savi-25-26-assignment1-group6\tum_dataset\rgb"
-depth_path = r"C:\Universidade\Mestrado\2o Ano\SAVI\savi-25-26-assignment1-group6\tum_dataset\depth"
+#rgb_path = r"C:\Universidade\Mestrado\2o Ano\SAVI\savi-25-26-assignment1-group6\tum_dataset\rgb"
+#depth_path = r"C:\Universidade\Mestrado\2o Ano\SAVI\savi-25-26-assignment1-group6\tum_dataset\depth"
 
 # Parâmetros intrínsecos da camera
 fx, fy = 525.0, 525.0
@@ -102,42 +102,53 @@ o3d.io.write_point_cloud("pcd2.ply", pointcloud_alvo)
 
 
 #As point clouds têm números de pontos diferentes 
-#FUNCAO QUE RECEBE POINT CLOUD FONTE E ALVO E UMA TRANSFORMACAO, APLICA A TRANS AO TARGET E CALCULA DISTANCIAS INDIVIDUAIS E TOTAL 
-def transforma_te(pcl_fonte, trans):
+#FUNCAO QUE RECEBE PONTOS E APLICA UMA TRANSFORMACAO
+def transforma_te(P, trans):
     # TRANSFORMA trans (tx, ty, tz, rx, ry, rz) em matriz 4x4
     tx, ty, tz, rx, ry, rz = trans
     # rotação a partir dos ângulos de Euler (XYZ)
     R_mat = R.from_euler('xyz', [rx, ry, rz]).as_matrix()
-    T = np.eye(4)
-    T[:3, :3] = R_mat
-    T[:3, 3] = [tx, ty, tz]
+
+    #T = np.eye(4)
+    #T[:3, :3] = R_mat
+    #T[:3, 3] = [tx, ty, tz]
 
     # copiar target para não alterar o original
-    pcl_fonte_trans = copy.deepcopy(pcl_fonte)
-    pcl_fonte_trans.transform(T.copy())
-    
-    return pcl_fonte_trans
+    t = np.array([tx, ty, tz])
 
-def Erro(trans ,pcl_fonte, pcl_alvo):
+    # aplica transformação
+    P_tr = (P @ R_mat.T) + t
 
-    pcl_fonte_atual = transforma_te(pcl_fonte,trans)
+    return P_tr
+
+def Erro(trans ,pcl_fonte_atual, target_tree_alvo):
+
+    #pcl_fonte_atual = transforma_te(pcl_fonte,trans)
     # Preparar KD-tree
-    source_tree = o3d.geometry.KDTreeFlann(pcl_fonte_atual)
-
-    source_points = np.asarray(pcl_fonte_atual.points) # não usado direto, mas útil
-    target_points = np.asarray(pcl_alvo.points) 
+    target_tree = target_tree_alvo
+    
+    source_points = np.asarray(pcl_fonte_atual.points)
+    source_points_atual = transforma_te(source_points, trans)
+    #target_points = np.asarray(pcl_alvo.points) 
 
     correspondencias = [] # LISTA DE CORRESPONDENCIAS (indice da fonte, indice do alvo)
     distancias_ind = [] # LISTA DE DISTANCIAS PARA CADA CORRESPONDENCIA
     dist_total = 0.0 # DISTANCIA TOTAL
+    threshold = 0.15
 
     # Para cada ponto da fonte (pc1), encontra o vizinho mais próximo na alvo (pc2)
-    for i, p in enumerate(target_points):
-        k, idx, dist = source_tree.search_knn_vector_3d(p, 1)
-        if k > 0:
-            correspondencias.append((i, idx[0]))
-            dist_total += dist[0]  # dist[0] já é distância ao quadrado
-            distancias_ind.append(dist[0])
+    for i, p in enumerate(source_points_atual):
+        k, idx, dist = target_tree.search_knn_vector_3d(p, 1)
+        if dist[0] < threshold:
+            if k > 0:
+                correspondencias.append((i, idx[0]))
+                dist_total += dist[0]  # dist[0] já é distância ao quadrado
+                distancias_ind.append(dist[0])
+        else:
+            if k > 0:
+                correspondencias.append((i, idx[0]))
+                dist_total += dist[0]  # dist[0] já é distância ao quadrado
+                distancias_ind.append(0)
     return distancias_ind
 
 ### FALTA OTIMIZACAO, VALID DIST( QUANDO DISTANCIA E MENOR QUE THRESHOLD É VALIDO (1) E INVALIDO QUANDO MAIOR (0) )
@@ -157,8 +168,32 @@ def Erro(trans ,pcl_fonte, pcl_alvo):
 #o3d.visualization.draw_geometries([pointcloud_alvo, pcl_transformada],window_name="DEPOIS DO ICP")
 
 transini = [0,0,0,0,0,0]
-res = least_squares(Erro, transini, args=(pointcloud_fonte, pointcloud_alvo), method='lm')
+target_tree_alvo = o3d.geometry.KDTreeFlann(pointcloud_alvo)
+res = least_squares(Erro, transini,jac='2-point', args=(pointcloud_fonte, target_tree_alvo), method='lm', verbose=1)
 print(res.x)
+print("Erro final (custo):", res.cost)
+xo = res.x
+
+while res.cost > 1:
+    res = least_squares(Erro, xo ,jac='2-point', args=(pointcloud_fonte, target_tree_alvo), method='lm', verbose=1)
+    xo = res.x
+    print(res.x)
+    print("Erro final (custo):", res.cost)
+
+#tx=0.42102139
+#ty=0.16492494
+#tz=0.15831197
+#rx=-0.04711065
+#ry=0.09399245
+#rz=0.01614926
+#R_mat = R.from_euler('xyz', [rx, ry, rz]).as_matrix()
+#T = np.eye(4)
+#T[:3, :3] = R_mat
+#T[:3, 3] = [tx, ty, tz]
+#pcfonteteste = copy.deepcopy(pointcloud_fonte)
+#pcfonteteste.transform(T)
+#o3d.visualization.draw_geometries([pointcloud_alvo, pointcloud_fonte],window_name="ANTES DO ICP")
+#o3d.visualization.draw_geometries([pointcloud_alvo, pcfonteteste],window_name="DEPOIS DO ICP")
 
 
 
