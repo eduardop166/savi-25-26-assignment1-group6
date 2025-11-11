@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import open3d as o3d
 import os
+from scipy.spatial.transform import Rotation as R
 
 ############################################################
 #                Pré Processamento
@@ -99,51 +100,39 @@ o3d.io.write_point_cloud("pcd2.ply", pointcloud_alvo)
 
 
 #As point clouds têm números de pontos diferentes 
+#FUNCAO QUE RECEBE POINT CLOUD FONTE E ALVO E UMA TRANSFORMACAO, APLICA A TRANS AO TARGET E CALCULA DISTANCIAS INDIVIDUAIS E TOTAL 
+def transforma_te(pcl_fonte, pcl_alvo, trans):
+    # TRANSFORMA trans (tx, ty, tz, rx, ry, rz) em matriz 4x4
+    tx, ty, tz, rx, ry, rz = trans
+    # rotação a partir dos ângulos de Euler (XYZ)
+    R_mat = R.from_euler('xyz', [rx, ry, rz]).as_matrix()
+    T = np.eye(4)
+    T[:3, :3] = R_mat
+    T[:3, 3] = [tx, ty, tz]
 
-def transforma_te(pcl_fonte, pcl_alvo, trans, alvo_tree):
+    # copiar target para não alterar o original
+    pcl_target_trans = pcl_alvo.transform(T.copy())
 
-    
-    #precisamos de ver como fazer a transformação atraves do vetor de 6 elementos 
-    #(talvez atraves da matriz de rotacao normal)
-    initial_transform = np.asarray([[0.862 , 0.011, -0.507,  0.5],
-                                    [-0.139, 0.967, -0.215,  0.7],
-                                    [0.487 , 0.255,  0.835, -1.4],
-                                    [   0.0,   0.0,    0.0,  1.0]])
-    
-    #Templates
-    #params = [rx, ry, rz, tx, ty, tz]
+    # Preparar KD-tree
+    target_tree = o3d.geometry.KDTreeFlann(pcl_target_trans)
 
-    #[ROT, ROT, ROT,  TRA],
-    #[ROT, ROT, ROT,  TRA],
-    #[ROT, ROT, ROT,  TRA],
-    #[0.0, 0.0, 0.0,  1.0]
-    
-    # Aplica a transformacao e alinha
-    pcl_alvo.transform(trans.transformation)
+    source_points = np.asarray(pcl_fonte.points)
+    target_points = np.asarray(pcl_target_trans.points)  # não usado direto, mas útil
 
-    # Cria o KDTree da nuvem alvo
-    alvo_tree = o3d.geometry.KDTreeFlann(pointcloud_alvo)
-    
-    # Guarda as coordenadas dos pontos em array (depois da transformação)
-    fonte_points = np.asarray(pcl_fonte.points)
-    alvo_points = np.asarray(pcl_alvo.points)
-
-
-    #depois da transformacao feita, fazemos a soma das distancias dos pontos, e o erro
-
-    # Lista para guardar as correspondências
-    correspondencias = []
-    distanciatotal = 0
+    correspondencias = [] # LISTA DE CORRESPONDENCIAS (indice da fonte, indice do alvo)
+    distancias_ind = [] # LISTA DE DISTANCIAS PARA CADA CORRESPONDENCIA
+    dist_total = 0.0 # DISTANCIA TOTAL
 
     # Para cada ponto da fonte (pc1), encontra o vizinho mais próximo na alvo (pc2)
-    for i, p in enumerate(fonte_points):  #p - coordenadas do ponto atual    i - index
-        k, idx, dist = alvo_tree.search_knn_vector_3d(p, 1)  # procura 1 vizinho mais próximo (k=1)
-        #k - numero de vizinhos encontrados 
-        #dist - lista com 1 elemento da distancia ao quadrado 
+    for i, p in enumerate(source_points):
+        k, idx, dist = target_tree.search_knn_vector_3d(p, 1)
         if k > 0:
             correspondencias.append((i, idx[0]))
-            distanciatotal += dist[0]
+            dist_total += dist[0]  # dist[0] já é distância ao quadrado
+            distancias_ind.append(dist[0])
+    return dist_total, correspondencias, distancias_ind
 
+### FALTA OTIMIZACAO, VALID DIST( QUANDO DISTANCIA E MENOR QUE THRESHOLD É VALIDO (1) E INVALIDO QUANDO MAIOR (0) )
 
 
 
