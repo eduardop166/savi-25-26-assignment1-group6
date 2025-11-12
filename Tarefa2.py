@@ -13,11 +13,11 @@ import copy
 
 # Caminhos para as pastas 
 base_path = "tum_dataset"
-#rgb_path = r"C:\Users\Eduardo Pereira\Documents\UNI\A2-S1\SAVI\TRABALHO1\tum_dataset\rgb"
-#depth_path = r"C:\Users\Eduardo Pereira\Documents\UNI\A2-S1\SAVI\TRABALHO1\tum_dataset\depth"
+rgb_path = r"C:\Users\Eduardo Pereira\Documents\UNI\A2-S1\SAVI\TRABALHO1\tum_dataset\rgb"
+depth_path = r"C:\Users\Eduardo Pereira\Documents\UNI\A2-S1\SAVI\TRABALHO1\tum_dataset\depth"
 
-rgb_path = r"C:\Universidade\Mestrado\2o Ano\SAVI\savi-25-26-assignment1-group6\tum_dataset\rgb"
-depth_path = r"C:\Universidade\Mestrado\2o Ano\SAVI\savi-25-26-assignment1-group6\tum_dataset\depth"
+#rgb_path = r"C:\Universidade\Mestrado\2o Ano\SAVI\savi-25-26-assignment1-group6\tum_dataset\rgb"
+#depth_path = r"C:\Universidade\Mestrado\2o Ano\SAVI\savi-25-26-assignment1-group6\tum_dataset\depth"
 
 # Parâmetros intrínsecos da camera
 fx, fy = 525.0, 525.0
@@ -116,7 +116,7 @@ def vetor_matriz(vetor):
 
     return T
 
-def matches(pcl_fonte_atual,pcl_alvo):
+def corresp(pcl_fonte_atual,pcl_alvo):
 
     target_tree_alvo = o3d.geometry.KDTreeFlann(pcl_alvo)
 
@@ -124,7 +124,7 @@ def matches(pcl_fonte_atual,pcl_alvo):
     target_points = np.asarray(pcl_alvo.points) 
 
     correspondencia = [] # LISTA DE CORRESPONDENCIAS (indice da fonte, indice do alvo)
-    threshold = 0.15
+    threshold = 0.2
     source_points_correspondencias = []
     target_points_correspondencias = []
 
@@ -135,7 +135,10 @@ def matches(pcl_fonte_atual,pcl_alvo):
             if k > 0:
                 correspondencia.append((i, idx[0]))  
                 source_points_correspondencias.append(source_points[i]) 
-                target_points_correspondencias.append(target_points[idx])         
+                target_points_correspondencias.append(target_points[idx[0]])      
+    # Converter para arrays np
+    source_points_correspondencias = np.array(source_points_correspondencias)
+    target_points_correspondencias = np.array(target_points_correspondencias)
 
     return correspondencia, source_points_correspondencias, target_points_correspondencias
 
@@ -148,12 +151,12 @@ def Erro(vetor,source_points, target_points):
     Translacao = matriz_trans[:3, 3]
         
     # Transforma os pontos da fonte: p_s' = R_inc * p_s + t_inc
-    fonte_transformada = (Rotacao @ source_points.T).T + Translacao
+    fonte_transformada = (Rotacao @ source_points.T).T + Translacao[np.newaxis, :]
 
     #Calcular os erros (distancias individuais)
     distancias_ind = fonte_transformada - target_points
 
-    return distancias_ind
+    return distancias_ind.flatten()
 
 
 ############################################################
@@ -176,15 +179,19 @@ def icp(pcl_source, pcl_target, vetor):
     transformacao_iterativa =  matriz_transformacao
 
     xo = np.zeros(6) # sempre 0 para a transformacao ser incremental 
-    iteracoes = 50
+    iteracoes = 150
     for i in range(iteracoes):
         #Buscar correspondencias 
-        Correspondencias, source_points_correspondencias, target_points_correspondencias = matches(source, pcl_target)
+        Correspondencias, source_points_correspondencias, target_points_correspondencias = corresp(source, pcl_target)
 
         #Otimizar com least_squares
-        res = least_squares(Erro, transini,jac='2-point', args=(source_points_correspondencias, target_points_correspondencias), method='lm', verbose=1)
-        print(res.x)
-        print("Erro final (custo):", res.cost)
+        res = least_squares(Erro,xo,jac='2-point', args=(source_points_correspondencias, target_points_correspondencias), method='lm', verbose=0)
+        print("iteracao:", i)
+        
+        # Calcula o quao grande foi o incremento nesta iteracao
+        alteracao = np.sqrt(np.sum(res.x**2)) 
+        print("Erro(custo):", res.cost)
+        print("Tamanho do incremento:", alteracao)
 
         T_incremental = vetor_matriz(res.x)  #trasnformacao do resultado em matriz
 
@@ -192,7 +199,8 @@ def icp(pcl_source, pcl_target, vetor):
         source.transform(T_incremental)
         transformacao_iterativa = T_incremental @ transformacao_iterativa
 
-        if res.cost < 5:
+        if alteracao < 1e-3: # para quando o incremento for muito pequeno
+            print("Point clouds convergiram")
             break
 
     trans_final = transformacao_iterativa
@@ -202,6 +210,24 @@ def icp(pcl_source, pcl_target, vetor):
 #Mostrar Resultado
 transini = [0,0,0,0,0,0]
 pcl_final, trans_final = icp(pointcloud_fonte, pointcloud_alvo, transini)
+
+ALVO = copy.deepcopy(pointcloud_alvo)
+FONTE = copy.deepcopy(pointcloud_fonte)
+ALVO.paint_uniform_color([0, 1, 0])
+FONTE.paint_uniform_color([1, 0, 0])
+
+pcl_final.paint_uniform_color([1, 0, 0])
+
+print("transformacao final:\n", trans_final)
+o3d.visualization.draw_geometries(
+        [ALVO, FONTE], 
+        window_name="Antes do ICP "
+    )
+
+o3d.visualization.draw_geometries(
+        [pcl_final, ALVO], 
+        window_name="Depois do ICP "
+    )
 
 
 
@@ -216,4 +242,3 @@ pcl_final, trans_final = icp(pointcloud_fonte, pointcloud_alvo, transini)
 
 
     
-
