@@ -13,11 +13,11 @@ import copy
 
 # Caminhos para as pastas 
 base_path = "tum_dataset"
-rgb_path = r"C:\Users\Eduardo Pereira\Documents\UNI\A2-S1\SAVI\TRABALHO1\tum_dataset\rgb"
-depth_path = r"C:\Users\Eduardo Pereira\Documents\UNI\A2-S1\SAVI\TRABALHO1\tum_dataset\depth"
+#rgb_path = r"C:\Users\Eduardo Pereira\Documents\UNI\A2-S1\SAVI\TRABALHO1\tum_dataset\rgb"
+#depth_path = r"C:\Users\Eduardo Pereira\Documents\UNI\A2-S1\SAVI\TRABALHO1\tum_dataset\depth"
 
-#rgb_path = r"C:\Universidade\Mestrado\2o Ano\SAVI\savi-25-26-assignment1-group6\tum_dataset\rgb"
-#depth_path = r"C:\Universidade\Mestrado\2o Ano\SAVI\savi-25-26-assignment1-group6\tum_dataset\depth"
+rgb_path = r"C:\Universidade\Mestrado\2o Ano\SAVI\savi-25-26-assignment1-group6\tum_dataset\rgb"
+depth_path = r"C:\Universidade\Mestrado\2o Ano\SAVI\savi-25-26-assignment1-group6\tum_dataset\depth"
 
 # Parâmetros intrínsecos da camera
 fx, fy = 525.0, 525.0
@@ -103,99 +103,117 @@ o3d.io.write_point_cloud("pcd2.ply", pointcloud_alvo)
 
 #As point clouds têm números de pontos diferentes 
 #FUNCAO QUE RECEBE PONTOS E APLICA UMA TRANSFORMACAO
-def transforma_te(P, trans):
+
+def vetor_matriz(vetor):
     # TRANSFORMA trans (tx, ty, tz, rx, ry, rz) em matriz 4x4
-    tx, ty, tz, rx, ry, rz = trans
+    tx, ty, tz, rx, ry, rz = vetor
     # rotação a partir dos ângulos de Euler (XYZ)
     R_mat = R.from_euler('xyz', [rx, ry, rz]).as_matrix()
 
-    #T = np.eye(4)
-    #T[:3, :3] = R_mat
-    #T[:3, 3] = [tx, ty, tz]
+    T = np.eye(4)
+    T[:3, :3] = R_mat
+    T[:3, 3] = [tx, ty, tz]
 
-    # copiar target para não alterar o original
-    t = np.array([tx, ty, tz])
+    return T
 
-    # aplica transformação
-    P_tr = (P @ R_mat.T) + t
+def matches(pcl_fonte_atual,pcl_alvo):
 
-    return P_tr
+    target_tree_alvo = o3d.geometry.KDTreeFlann(pcl_alvo)
 
-def Erro(trans ,pcl_fonte_atual, target_tree_alvo):
-
-    #pcl_fonte_atual = transforma_te(pcl_fonte,trans)
-    # Preparar KD-tree
-    target_tree = target_tree_alvo
-    
     source_points = np.asarray(pcl_fonte_atual.points)
-    source_points_atual = transforma_te(source_points, trans)
-    #target_points = np.asarray(pcl_alvo.points) 
+    target_points = np.asarray(pcl_alvo.points) 
 
-    correspondencias = [] # LISTA DE CORRESPONDENCIAS (indice da fonte, indice do alvo)
-    distancias_ind = [] # LISTA DE DISTANCIAS PARA CADA CORRESPONDENCIA
-    dist_total = 0.0 # DISTANCIA TOTAL
+    correspondencia = [] # LISTA DE CORRESPONDENCIAS (indice da fonte, indice do alvo)
     threshold = 0.15
+    source_points_correspondencias = []
+    target_points_correspondencias = []
 
     # Para cada ponto da fonte (pc1), encontra o vizinho mais próximo na alvo (pc2)
-    for i, p in enumerate(source_points_atual):
-        k, idx, dist = target_tree.search_knn_vector_3d(p, 1)
-        if dist[0] < threshold:
+    for i, p in enumerate(source_points):   #i - index
+        k, idx, dist  = target_tree_alvo.search_knn_vector_3d(p, 1)
+        if dist[0] < threshold**2:
             if k > 0:
-                correspondencias.append((i, idx[0]))
-                dist_total += dist[0]  # dist[0] já é distância ao quadrado
-                distancias_ind.append(dist[0])
-        else:
-            if k > 0:
-                correspondencias.append((i, idx[0]))
-                dist_total += dist[0]  # dist[0] já é distância ao quadrado
-                distancias_ind.append(0)
+                correspondencia.append((i, idx[0]))  
+                source_points_correspondencias.append(source_points[i]) 
+                target_points_correspondencias.append(target_points[idx])         
+
+    return correspondencia, source_points_correspondencias, target_points_correspondencias
+
+def Erro(vetor,source_points, target_points):
+    #aplicar a transformação e calcular os erros 
+
+    #vetor novo para matriz  
+    matriz_trans = vetor_matriz(vetor)
+    Rotacao = matriz_trans[:3, :3]
+    Translacao = matriz_trans[:3, 3]
+        
+    # Transforma os pontos da fonte: p_s' = R_inc * p_s + t_inc
+    fonte_transformada = (Rotacao @ source_points.T).T + Translacao
+
+    #Calcular os erros (distancias individuais)
+    distancias_ind = fonte_transformada - target_points
+
     return distancias_ind
 
-### FALTA OTIMIZACAO, VALID DIST( QUANDO DISTANCIA E MENOR QUE THRESHOLD É VALIDO (1) E INVALIDO QUANDO MAIOR (0) )
+
+############################################################
+#                ICP
+############################################################
 
 
-# CODIGO PARA TESTAR A FUNCAO TRANSFORMA_TE
 
-#[ tx=0.912772, ty=0.071510, tz=-0.009936,  rx=0.017766, ry=0.171394, rz=0.081535 ] dado pelo ICP - Tarefa 1
-#trans = [0.912,0.071510,-0.00993,0.0177,0.1713,0.0815]
-#a,b,c,pcl_transformada= transforma_te(pointcloud_fonte, pointcloud_alvo, trans)
-#print("DISTANCIA TOTAL", a)
-#print("CORRESPONDENCIAS",b)
-#print("DISTANCIAS INDIVIDUAIS",c)
-### FALTA OTIMIZACAO, VALID DIST( QUANDO DISTANCIA E MENOR QUE THRESHOLD É VALIDO (1) E INVALIDO QUANDO MAIOR (0),
-# DEPOIS NO CALCULO DO ERRO APENAS SOMAR OS VALIDOS )
-#o3d.visualization.draw_geometries([pointcloud_alvo, pointcloud_fonte],window_name="ANTES DO ICP")
-#o3d.visualization.draw_geometries([pointcloud_alvo, pcl_transformada],window_name="DEPOIS DO ICP")
+def icp(pcl_source, pcl_target, vetor):
+    #Copia da pcl source 
+    source = copy.deepcopy(pcl_source)  
 
+    #Transformar o vetor em matriz
+    matriz_transformacao = vetor_matriz(vetor)
+
+    #aplicar transformacao inicial
+    source.transform(matriz_transformacao)
+
+    #primeira transformacao para a iteracao
+    transformacao_iterativa =  matriz_transformacao
+
+    xo = np.zeros(6) # sempre 0 para a transformacao ser incremental 
+    iteracoes = 50
+    for i in range(iteracoes):
+        #Buscar correspondencias 
+        Correspondencias, source_points_correspondencias, target_points_correspondencias = matches(source, pcl_target)
+
+        #Otimizar com least_squares
+        res = least_squares(Erro, transini,jac='2-point', args=(source_points_correspondencias, target_points_correspondencias), method='lm', verbose=1)
+        print(res.x)
+        print("Erro final (custo):", res.cost)
+
+        T_incremental = vetor_matriz(res.x)  #trasnformacao do resultado em matriz
+
+        #aplicar nova transformacao 
+        source.transform(T_incremental)
+        transformacao_iterativa = T_incremental @ transformacao_iterativa
+
+        if res.cost < 5:
+            break
+
+    trans_final = transformacao_iterativa
+
+    return source, trans_final
+
+#Mostrar Resultado
 transini = [0,0,0,0,0,0]
-target_tree_alvo = o3d.geometry.KDTreeFlann(pointcloud_alvo)
-res = least_squares(Erro, transini,jac='2-point', args=(pointcloud_fonte, target_tree_alvo), method='lm', verbose=1)
-print(res.x)
-print("Erro final (custo):", res.cost)
-xo = res.x
-
-while res.cost > 1:
-    res = least_squares(Erro, xo ,jac='2-point', args=(pointcloud_fonte, target_tree_alvo), method='lm', verbose=1)
-    xo = res.x
-    print(res.x)
-    print("Erro final (custo):", res.cost)
-
-#tx=0.42102139
-#ty=0.16492494
-#tz=0.15831197
-#rx=-0.04711065
-#ry=0.09399245
-#rz=0.01614926
-#R_mat = R.from_euler('xyz', [rx, ry, rz]).as_matrix()
-#T = np.eye(4)
-#T[:3, :3] = R_mat
-#T[:3, 3] = [tx, ty, tz]
-#pcfonteteste = copy.deepcopy(pointcloud_fonte)
-#pcfonteteste.transform(T)
-#o3d.visualization.draw_geometries([pointcloud_alvo, pointcloud_fonte],window_name="ANTES DO ICP")
-#o3d.visualization.draw_geometries([pointcloud_alvo, pcfonteteste],window_name="DEPOIS DO ICP")
+pcl_final, trans_final = icp(pointcloud_fonte, pointcloud_alvo, transini)
 
 
 
 
+
+
+
+
+
+
+
+
+
+    
 
