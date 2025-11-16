@@ -1,4 +1,4 @@
-# 🛰️ Trabalho Prático – SAVI
+# Trabalho Prático – SAVI
 # Eduardo Pereira - 108009
 # Gonçalo Almeida - 108432 
 ## Registo de Nuvens de Pontos RGB-D com ICP
@@ -24,10 +24,10 @@ Bastou definir os parâmetros principais (threshold, transformação inicial e m
 ### Visualização  
 
 **Antes do ICP:**  
-> !(¨T1_ANTES.png")
+> ![Antes do ICP](T1_ANTES.png)
 
 **Depois do ICP:**  
-> !("T2_DEPOIS.png")
+> ![Depois do ICP](T1_DEPOIS.png)
 
 Os resultados foram bons — as points clouds alinharam-se de forma bastante eficiente e precisa.
 
@@ -47,17 +47,17 @@ Em cada iteração:
 O maior desafio desta tarefa foi perceber como usar corretamente o `scipy.optimize.least_squares` dentro do ciclo ICP. No início não sabíamos muito bem como montar a função de erro corretamente, nem como passar os pontos correspondentes ao otimizador. Para complicar, também não estava claro como aplicar a transformação devolvida pelo `least_squares` de forma incremental ao longo das iterações.
 
 
-### 🖼️ Visualizações  
+### Visualizações  
 
 
 **Antes do ICP personalizado:**  
-> !(T2_ANTES.png)
+> ![Antes do ICP](T2_ANTES.png)
 
 **Depois do ICP personalizado:**  
-> !(T2_DEPOISS.png)
+> ![Depois do ICP](T2_DEPOISS.png)
 
-### 🖥️ Saída do terminal  
-> !(T2_TERMINAL.png)
+### Saída do terminal  
+> ![Saida do terminal](T2_TERMINAL.png)
 
 O resultado final ficou bastante próximo do obtido com o ICP do Open3D, o que confirmou que a nossa implementação estava correta e funcional.
 
@@ -76,3 +76,4 @@ Este trabalho permitiu-nos entender melhor como gerar point clouds RGB-D, como t
 No final ficámos com uma boa perceção da diferença entre usar uma biblioteca altamente otimizada e implementar o ciclo completo por conta própria, o que foi bastante enriquecedor para a compreensão do processo.
 
 ---
+
