@@ -13,8 +13,11 @@ from scipy.optimize import least_squares
 # Caminhos para as pastas (AJUSTAR NO SEU AMBIENTE)
 base_path = "tum_dataset"
 # EXEMPLO: Estes caminhos DEVEM ser ajustados para o seu computador
-rgb_path = r"C:\Users\Eduardo Pereira\Documents\UNI\A2-S1\SAVI\TRABALHO1\tum_dataset\rgb"
-depth_path = r"C:\Users\Eduardo Pereira\Documents\UNI\A2-S1\SAVI\TRABALHO1\tum_dataset\depth"
+#rgb_path = r"C:\Users\Eduardo Pereira\Documents\UNI\A2-S1\SAVI\TRABALHO1\tum_dataset\rgb"
+#depth_path = r"C:\Users\Eduardo Pereira\Documents\UNI\A2-S1\SAVI\TRABALHO1\tum_dataset\depth"
+
+rgb_path = r"C:\Universidade\Mestrado\2o Ano\SAVI\savi-25-26-assignment1-group6\tum_dataset\rgb"
+depth_path = r"C:\Universidade\Mestrado\2o Ano\SAVI\savi-25-26-assignment1-group6\tum_dataset\depth"
 
 # Parâmetros intrínsecos da camera
 fx, fy = 525.0, 525.0
@@ -78,29 +81,39 @@ pointcloud_alvo = process_rgbd_pair(os.path.join(rgb_path, "2.png"),
 ############################################################
 
 # --- CONSTANTES PARA FORÇAR A RESTRIÇÃO RÍGIDA ---
-PENALTY_WEIGHT = 1e6 
-EPSILON_MARGIN = 1e-6 
+PENALTY = 1e6 
+EPSILON = 1e-6
 
 def Erro_Esfera(vetor_esfera, combined_points):
-    """
-    Função objetivo com Penalização Reforçada para forçar a contenção estrita.
-    """
+    
+    #Função objetivo com Penalização Reforçada para forçar a contenção estrita.
+ 
     xc, yc, zc, r = vetor_esfera
-    center = np.array([xc, yc, zc])
+    center = np.array([xc, yc, zc])   #centro da esfera
 
     # 1. Distância de cada ponto ao centro: d_i = || p_i - c ||
-    distances = np.linalg.norm(combined_points - center, axis=1)
+    distances = np.linalg.norm(combined_points - center, axis=1)  #distancia euclidiana; axis=1 vê linha a linha 
 
     # 2. Resíduos para as Restrições (Penalização Reforçada)
-    constraint_residuals = np.maximum(0, distances - r + EPSILON_MARGIN) * PENALTY_WEIGHT
+    # np.maximum(0, x) devolve 0 se x < 0 (ponto dentro da esfera), ou o valor de x se for positivo (ponto fora) e multiplica-o pela penalização
+    constraint_residuals = np.maximum(0, distances - r) * PENALTY 
 
     # 3. Resíduo para o Objetivo (Minimizar r)
-    objective_residual = np.array([r])
+    objective_residual = np.array([r])   #raio em array só para estar compatível com o least squares 
 
-    return np.hstack((objective_residual, constraint_residuals))
+    return np.hstack((objective_residual, constraint_residuals))  #array 1D
 
 
 # --- 1. Preparação dos Dados e Parâmetros Iniciais ---
+
+transf =  np.array([
+    [ 0.98073911, -0.07599905,  0.17993039,  0.91113723],
+    [ 0.07860547,  0.99687841, -0.00738975,  0.06264181],
+    [-0.1788071 ,  0.02139093,  0.98365159, -0.01373347],
+    [ 0.        ,  0.        ,  0.        ,  1.        ]
+])
+
+pointcloud_fonte.transform(transf)
 
 # Combinação de pontos das duas nuvens
 source_points = np.asarray(pointcloud_fonte.points)
@@ -113,9 +126,15 @@ print(f"Total de pontos para envolver: {combined_points.shape[0]}")
 min_coord = np.min(combined_points, axis=0)
 max_coord = np.max(combined_points, axis=0)
 center_init = (min_coord + max_coord) / 2 # Centro inicial
-radius_init = np.max(np.linalg.norm(combined_points - center_init, axis=1))
 
-x0_esfera = np.append(center_init, radius_init)
+dists = []
+for p in combined_points:
+    dist = np.linalg.norm(p - center_init)
+    dists.append(dist)
+
+radius_init = max(dists)
+
+x0_esfera = np.append(center_init, radius_init)  #vetor da esfera inicial
 
 
 # --- 2. Execução da Otimização ---
@@ -124,14 +143,7 @@ print("\n--- INÍCIO DA OTIMIZAÇÃO (Esfera Englobante Mínima - Penalidade Ref
 print(f"Palpite Inicial: Centro={center_init}, Raio={radius_init:.4f}")
 
 # Otimização com least_squares
-res_esfera = least_squares(
-    Erro_Esfera, 
-    x0_esfera, 
-    args=(combined_points,), 
-    method='lm', 
-    verbose=1,
-    ftol=1e-8 
-)
+res_esfera = least_squares(Erro_Esfera, x0_esfera, args=(combined_points,), method='lm', verbose=1,ftol=1e-8 )
 
 
 # Extração dos resultados
@@ -144,43 +156,30 @@ print(f"Custo Final (r²): {res_esfera.cost:.6f}")
 
 # --- 3. Visualização Estável e Cortada ---
 
-# 1. Preparação da Esfera
-esfera_minima = o3d.geometry.TriangleMesh.create_sphere(radius=r_final)
-esfera_minima.translate([xc_final, yc_final, zc_final])
-esfera_minima.paint_uniform_color([1.0, 0.0, 0.0]) # Vermelho Sólido
-
-# --- 3. Visualização Estável e Cortada ---
-
-# 1. Preparação da Esfera
-esfera_minima = o3d.geometry.TriangleMesh.create_sphere(radius=r_final)
-esfera_minima.translate([xc_final, yc_final, zc_final])
-esfera_minima.paint_uniform_color([1.0, 0.0, 0.0]) # Vermelho Sólido
-
 # 2. DEFINIÇÃO DO CORTE ROBUSO (Cortamos X <= XC_FINAL)
 # O centro e o raio finais são usados para definir o corte, garantindo que ele funciona.
 xc, yc, zc = xc_final, yc_final, zc_final
 r = r_final
 
-# A Bounding Box deve começar longe na parte negativa e terminar exatamente no centro (xc).
-# Definimos as coordenadas mínimas (longe) e máximas (no centro) para o corte.
-clip_min = np.array([xc - r - 1.0, yc - r - 1.0, zc - r - 1.0])
-clip_max = np.array([xc, yc + r + 1.0, zc + r + 1.0]) # O corte é feito em X=xc_final
+# 1. Preparação da Esfera
+esfera_minima = o3d.geometry.TriangleMesh.create_sphere(radius=r_final)
+esfera_minima.translate([xc_final, yc_final, zc_final])
+esfera_minima.paint_uniform_color([1.0, 0.0, 0.0]) # Vermelho Sólido
 
-# Criamos a caixa de corte
-clip_box = o3d.geometry.AxisAlignedBoundingBox(clip_min, clip_max)
 
-# Aplicamos o corte à esfera, criando uma metade
-esfera_cortada = esfera_minima.crop(clip_box)
-esfera_cortada.compute_vertex_normals() # Recalcula as normais para a visualização
 
-# 3. Preparar as nuvens (pintá-las de cinzento para contraste)
+# Criar wireframe da esfera para efeito de transparência
+esfera_wireframe = o3d.geometry.LineSet.create_from_triangle_mesh(esfera_minima)
+esfera_wireframe.paint_uniform_color([1.0, 0.0, 0.0])  # vermelho
+
+# Preparar as nuvens de pontos para visualização
 fonte_viz = copy.deepcopy(pointcloud_fonte)
 alvo_viz = copy.deepcopy(pointcloud_alvo)
 fonte_viz.paint_uniform_color([0.7, 0.7, 0.7]) 
 alvo_viz.paint_uniform_color([0.5, 0.5, 0.5])
 
-# 4. Visualização (Método Clássico e Estável)
+# Visualização final com esfera wireframe (transparente)
 o3d.visualization.draw_geometries(
-    [fonte_viz, alvo_viz, esfera_cortada], 
-    window_name="Tarefa 3: Esfera Englobante Mínima (Corte Funcional)"
+    [fonte_viz, alvo_viz, esfera_wireframe],
+    window_name="Esfera Englobante Mínima - Transparente"
 )
