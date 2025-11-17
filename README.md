@@ -69,6 +69,12 @@ O ICP do Open3D foi claramente mais rápido, já que é bastante otimizado. A no
 
 ---
 
+# Tarefa 3 – Otimização da Esfera Englobante Mínima
+
+Nesta esfera pretendemos construir um esfera capaz de abranger todos os pontos de ambas as poinntclouds inseridas (depois de uma delas sofrer uma transformação gerada pelo icp costumizado da Tarefa 2). Para isso, definimos a função erro que permitiu diferenciar os pontos que estavam dentro e fora de uma esfera gerada inicialmente, retornando um array 1D com o raio da esfera na primeira posição, seguida de valores 0 ou diferentes de 0, consoante o ponto estivesse dentro ou fora da esfera, respetivamente.
+Através do least_squares foi possível optimizar este array, de maneira a conseguir que o programa minimizasse tanto os valores das distâncias dos pontos ao centro da esfera, como o próprio raio da esfera, caso estes valores das distâncias fossem todos 0.
+Nesta tarefa consideramos que o maior desafio acabou por ser a caracterização da própria esfera circundante, de maneira a conseguir vizualizar tanto a esfera como as pointclouds no seu interior.
+
 # Conclusão
 
 Este trabalho permitiu-nos entender melhor como gerar point clouds RGB-D, como trabalhar com o sistema de coordenadas do Open3D, e sobretudo como funciona o ICP tanto numa versão pronta como na construção manual.
@@ -76,4 +82,5 @@ Este trabalho permitiu-nos entender melhor como gerar point clouds RGB-D, como t
 No final ficámos com uma boa perceção da diferença entre usar uma biblioteca altamente otimizada e implementar o ciclo completo por conta própria, o que foi bastante enriquecedor para a compreensão do processo.
 
 ---
+
 
