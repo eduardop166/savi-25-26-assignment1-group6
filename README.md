@@ -9,27 +9,24 @@ Este projeto teve como objetivo trabalhar com registo de nuvens de pontos RGB-D 
 
 # Pré-processamento
 
-Antes de aplicarmos o ICP, tratámos todos os pares RGB-D da mesma forma. Começámos por carregar as imagens com o OpenCV, garantindo que a profundidade se mantinha em `uint16`. Convertêmo-las para objetos do Open3D e criámos imagens RGBD mantendo as cores reais.
+Antes de aplicarmos o ICP, tratámos todos os pares RGB-D da mesma forma. Começámos por carregar as imagens com o OpenCV, garantindo que a profundidade se mantinha em `uint16`. Convertêmo-las para objetos do Open3D e criámos imagens RGBD usando os **parâmetros intrínsecos** do dataset TUM (focais **$fx, fy = 525.0$** e escala de profundidade **$5000.0$**). A partir daí, gerámos as nuvens de pontos (`PointCloud`) com a função `o3d.geometry.PointCloud.create_from_rgbd_image`, mantendo as cores originais. Como o Open3D usa um sistema de coordenadas diferente, aplicámos de seguida uma **transformação de correção** (`pcd.transform`) para alinhar a orientação das nuvens de pontos. Finalmente, fizemos **voxel downsampling** (`voxel_down_sample`) com um tamanho de voxel de **0.02** metros para reduzir a densidade e acelerar o processamento, e calculámos os vetores **normais** (`estimate_normals`) para as puder usar no método Point-to-Plane do ICP.
 
-A partir daí gerámos as point clouds com os os intrínsecos oficiais do TUM dataset. Como o Open3D usa um sistema de coordenadas diferente, aplicámos uma transformação para corrigir a orientação. Fizemos também voxel downsampling para reduzir a densidade e calculámos normais para as puder usar no point to plane.
 
 ---
 
 # Tarefa 1 – ICP com Open3D
 
-Nesta tarefa utilizámos diretamente o ICP do Open3D. Isto serviu como referência para comparar depois com a implementação personalizada. Usámos o método Point-to-Plane, que costuma ser mais estável e convergir mais rapidamente.
+Nesta tarefa utilizámos diretamente o ICP do Open3D. Isto serviu como referência para comparar depois com a implementação personalizada. Para o alinhamento, definimos o método de estimação como **Point-to-Plane** (`TransformationEstimationPointToPlane`), que é mais eficiente, e impusemos uma **distância máxima de correspondência** (*threshold*) de **0.15 metros** para filtrar correspondencias incorretas. A otimização começou com uma **transformação inicial de identidade**. 
 
-Bastou definir os parâmetros principais (threshold, transformação inicial e método de estimativa) e visualizar as nuvens antes e depois. No fim também convertemos a matriz 4×4 resultante para um vetor de 6 parâmetros, útil para usar essa transformação como referencia na Tarefa 2.
+### Visualização  
 
-### Visualização  
-
-**Antes do ICP:**  
+**Antes do ICP:**  
 > ![Antes do ICP](T1_ANTES.png)
 
-**Depois do ICP:**  
+**Depois do ICP:**  
 > ![Depois do ICP](T1_DEPOIS.png)
 
-Os resultados foram bons — as points clouds alinharam-se de forma bastante eficiente e precisa.
+O resultado final devolvido no objeto `icp_result` foi bastante bom e as nuvens convergiram corretamente.
 
 ---
 
@@ -37,12 +34,15 @@ Os resultados foram bons — as points clouds alinharam-se de forma bastante efi
 
 Aqui construímos o ciclo ICP completo manualmente. Isto incluiu: encontrar correspondências, calcular a função de erro, usar o `least_squares` do SciPy para obter incrementos de transformação e aplicar esses incrementos iterativamente.
 
-Em cada iteração:
-- encontrámos os vizinhos mais próximos com KD-Tree,
-- calculámos as distancias individuais ponto-a-ponto (erro),
-- pedimos ao `least_squares` para minimizar esse erro,
-- aplicámos a nova transformação incremental e seguimos para a iteração seguinte.
-- Verificamos se o resultado já tinha convergido e nesse caso termina o loop.
+Em cada iteração, o processo seguiu os seguintes passos:
+
+1.  **Associação de Correspondências (`corresp`):** Utilizámos uma **KD-Tree** (`open3d.geometry.KDTreeFlann`) construída a partir da nuvem de pontos *alvo* (`pcl_target`) para encontrar o vizinho mais próximo para cada ponto da nuvem *fonte* transformada. Aplicámos um `threshold` de distância máxima para filtrar correspondências inválidas.
+2.  **Função de Custo (`Erro`):** Esta função recebe o vetor de 6 parâmetros de transformação incremental ($\Delta T$ - 3 translações e 3 rotações de Euler), os pontos da fonte e os pontos alvo correspondentes.
+    * **Transformação Incremental:** A função `vetor_matriz` converte o vetor de 6 elementos numa matriz de transformação $4\times4$.
+    * **Cálculo do Resíduo:** O vetor de transformação é aplicado à fonte, e o **erro (residual)** é calculado como a diferença euclidiana entre os pontos da fonte transformados e os seus correspondentes no alvo. O resultado é devolvido como um array 1D de distâncias individuais (`distancias_ind.flatten()`).
+3.  **Otimização (`least_squares`):** Pedimos ao `scipy.optimize.least_squares` (método Levenberg-Marquardt, `'lm'`) para minimizar o resíduo calculado pela função `Erro`. O resultado desta otimização é a transformação *incremental* ($\Delta T$) que melhor alinha as correspondências atuais.
+4.  **Aplicação da Transformação:** A transformação incremental é aplicada à nuvem de pontos *fonte* e acumulada na matriz de transformação total (`transformacao_iterativa = T_incremental @ transformacao_iterativa`).
+5.  **Critério de Paragem:** O ciclo termina quando o tamanho do incremento de transformação (`alteracao`) é menor que um limite pré-definido ($\mathbf{1e-3}$) ou quando o número máximo de iterações é atingido.
 
 O maior desafio desta tarefa foi perceber como usar corretamente o `scipy.optimize.least_squares` dentro do ciclo ICP. No início não sabíamos muito bem como montar a função de erro corretamente, nem como passar os pontos correspondentes ao otimizador. Para complicar, também não estava claro como aplicar a transformação devolvida pelo `least_squares` de forma incremental ao longo das iterações.
 
