@@ -84,10 +84,11 @@ De salientar também que, dentro da função erro desenvolvida, no momento em qu
 
 Através da função least_squares foi possível optimizar este array, de maneira a conseguir que o programa minimizasse tanto os valores das distâncias dos pontos ao centro da esfera, como o próprio raio da esfera, caso estes valores das distâncias fossem todos 0. A esfera final, que engloba todos os pontos de ambas as pointclouds, foi gerada com os resultados do vetor esfera final (variável a otimizar), considerando:
 
-                                                                         vetor_esfera_final = xc_final, yc_final, zc_final, r_final
+                                                 vetor_esfera_final = xc_final, yc_final, zc_final, r_final
 
 Nesta tarefa consideramos que o maior desafio acabou por ser a caracterização da própria esfera circundante, de maneira a conseguir vizualizar tanto a esfera como as pointclouds no seu interior.
-
+Por curiosidade, foi testado também se o programa alargaria/adaptaria a esfera desenvolvida para valores diferentes da transformação (considerando uma transformação que afastasse as duas pointclouds), o que também se verificou.
+ 
 **Visualização:**  
 > ![Esfera otimizada e point clouds](T3_FINAL.png)
 
@@ -98,6 +99,7 @@ Este trabalho permitiu-nos entender melhor como gerar point clouds RGB-D, como t
 No final ficámos com uma boa perceção da diferença entre usar uma biblioteca altamente otimizada e implementar o ciclo completo por conta própria, o que foi bastante enriquecedor para a compreensão do processo.
 
 ---
+
 
 
 
