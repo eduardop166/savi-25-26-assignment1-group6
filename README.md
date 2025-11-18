@@ -37,12 +37,15 @@ Os resultados foram bons — as points clouds alinharam-se de forma bastante efi
 
 Aqui construímos o ciclo ICP completo manualmente. Isto incluiu: encontrar correspondências, calcular a função de erro, usar o `least_squares` do SciPy para obter incrementos de transformação e aplicar esses incrementos iterativamente.
 
-Em cada iteração:
-- encontrámos os vizinhos mais próximos com KD-Tree,
-- calculámos as distancias individuais ponto-a-ponto (erro),
-- pedimos ao `least_squares` para minimizar esse erro,
-- aplicámos a nova transformação incremental e seguimos para a iteração seguinte.
-- Verificamos se o resultado já tinha convergido e nesse caso termina o loop.
+Em cada iteração, o processo seguiu os seguintes passos:
+
+1.  **Associação de Correspondências (`corresp`):** Utilizámos uma **KD-Tree** (`open3d.geometry.KDTreeFlann`) construída a partir da nuvem de pontos *alvo* (`pcl_target`) para encontrar o vizinho mais próximo para cada ponto da nuvem *fonte* transformada. Aplicámos um `threshold` de distância máxima para filtrar correspondências inválidas.
+2.  **Função de Custo (`Erro`):** Esta função recebe o vetor de 6 parâmetros de transformação incremental ($\Delta T$ - 3 translações e 3 rotações de Euler), os pontos da fonte e os pontos alvo correspondentes.
+    * **Transformação Incremental:** A função `vetor_matriz` converte o vetor de 6 elementos numa matriz de transformação $4\times4$.
+    * **Cálculo do Resíduo:** O vetor de transformação é aplicado à fonte, e o **erro (residual)** é calculado como a diferença euclidiana entre os pontos da fonte transformados e os seus correspondentes no alvo. O resultado é devolvido como um array 1D de distâncias individuais (`distancias_ind.flatten()`).
+3.  **Otimização (`least_squares`):** Pedimos ao `scipy.optimize.least_squares` (método Levenberg-Marquardt, `'lm'`) para minimizar o resíduo calculado pela função `Erro`. O resultado desta otimização é a transformação *incremental* ($\Delta T$) que melhor alinha as correspondências atuais.
+4.  **Aplicação da Transformação:** A transformação incremental é aplicada à nuvem de pontos *fonte* e acumulada na matriz de transformação total (`transformacao_iterativa = T_incremental @ transformacao_iterativa`).
+5.  **Critério de Paragem:** O ciclo termina quando o tamanho do incremento de transformação (`alteracao`) é menor que um limite pré-definido ($\mathbf{1e-3}$) ou quando o número máximo de iterações é atingido.
 
 O maior desafio desta tarefa foi perceber como usar corretamente o `scipy.optimize.least_squares` dentro do ciclo ICP. No início não sabíamos muito bem como montar a função de erro corretamente, nem como passar os pontos correspondentes ao otimizador. Para complicar, também não estava claro como aplicar a transformação devolvida pelo `least_squares` de forma incremental ao longo das iterações.
 
@@ -99,6 +102,7 @@ Este trabalho permitiu-nos entender melhor como gerar point clouds RGB-D, como t
 No final ficámos com uma boa perceção da diferença entre usar uma biblioteca altamente otimizada e implementar o ciclo completo por conta própria, o que foi bastante enriquecedor para a compreensão do processo.
 
 ---
+
 
 
 
