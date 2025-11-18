@@ -71,9 +71,20 @@ O ICP do Open3D foi claramente mais rápido, já que é bastante otimizado. A no
 
 # Tarefa 3 – Otimização da Esfera Englobante Mínima
 
-Nesta esfera pretendemos construir um esfera capaz de abranger todos os pontos de ambas as poinntclouds inseridas (depois de uma delas sofrer uma transformação gerada pelo icp costumizado da Tarefa 2). Para isso, definimos a função erro que permitiu diferenciar os pontos que estavam dentro e fora de uma esfera gerada inicialmente, retornando um array 1D com o raio da esfera na primeira posição, seguida de valores 0 ou diferentes de 0, consoante o ponto estivesse dentro ou fora da esfera, respetivamente.
+Nesta tarefa pretendemos construir um esfera capaz de abranger todos os pontos de ambas as poinntclouds inseridas (depois de uma delas sofrer uma transformação gerada pelo icp costumizado da Tarefa 2). 
 
-Através do least_squares foi possível optimizar este array, de maneira a conseguir que o programa minimizasse tanto os valores das distâncias dos pontos ao centro da esfera, como o próprio raio da esfera, caso estes valores das distâncias fossem todos 0.
+Para fazer esta otimização, tivemos primeiro que aplicar a transformação obtida à pointcloud_fonte, de maneira a que esta ficasse o mais sobreposta possível com a pointcloud_target. Depois de organizarmos os pontos de ambas as pointclouds em arrays distintos, criámos o array combined_points, que seria a incorporação de todos os pontos de ambas as pointclouds num único array. 
+Para ser feita a otimização, precisávamos de palpites iniciais do vetor da esfera (raio e coordenadas do centro). Para isso, encontrámos as coordenadas máxima e mínima do array combined_points, conseguindo assim, dividindo a soma destas duas coordenadas por 2, obter um bom palpite inicial para as coordenadas do centro da esfera. Posteriormente, através da função np.linalg.norm, através da avaliação de todos os pontos do combined_points, fomos encontrar a distância euclidiana do ponto mais afastado. Este valor foi usado como palpite inicial para o raio da esfera.
+
+Posto isto, temos já todos os parâmetros iniciais necessários para proceder à otimização. 
+Para isso, definimos a função erro que permitiu diferenciar os pontos que estavam dentro e fora de uma esfera gerada inicialmente (palpites iniciais), retornando um array 1D com o valor do raio da esfera na primeira posição, seguida de valores 0 ou diferentes de 0, consoante o ponto estivesse dentro ou fora da esfera, respetivamente. Esta distinção foi feita através de, primeiramente, do cálculo da distância euclidiana do ponto ao centro da esfera, e, posteriormente, da subtração desta distância com o valor do raio da esfera, na respetiva iteração, para todos os pontos. Se a distância calculada fosse maior que o raio, então o ponto estaria fora da esfera. 
+De salientar também que, dentro da função erro desenvolvida, no momento em que é determinado se o ponto está dentro ou fora da esfera, foi multiplicada uma constante PENALTY ao valor returnado (0 ou diferente de zero), de maneira a que os pontos que não estivessem dentro da esfera sofressem uma grande penalização, para assim não serem ignorados pelo programa e puderem ser imediatamente otimizados na respetiva iteração.
+
+                                                                          PENALTY = 1e6
+
+Através da função least_squares foi possível optimizar este array, de maneira a conseguir que o programa minimizasse tanto os valores das distâncias dos pontos ao centro da esfera, como o próprio raio da esfera, caso estes valores das distâncias fossem todos 0. A esfera final, que engloba todos os pontos de ambas as pointclouds, foi gerada com os resultados do vetor esfera final (variável a otimizar), considerando:
+
+                                                                         vetor_esfera_final = xc_final, yc_final, zc_final, r_final
 
 Nesta tarefa consideramos que o maior desafio acabou por ser a caracterização da própria esfera circundante, de maneira a conseguir vizualizar tanto a esfera como as pointclouds no seu interior.
 
@@ -87,6 +98,7 @@ Este trabalho permitiu-nos entender melhor como gerar point clouds RGB-D, como t
 No final ficámos com uma boa perceção da diferença entre usar uma biblioteca altamente otimizada e implementar o ciclo completo por conta própria, o que foi bastante enriquecedor para a compreensão do processo.
 
 ---
+
 
 
 
